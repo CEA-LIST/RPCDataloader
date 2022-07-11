@@ -23,6 +23,7 @@ setup(
         'pytest'
     ],
     extras_require={
+        'test': ['pytest'],
         'doc': ['sphinx', 'sphinx-autodoc-typehints', 'sphinx-rtd-theme']
     },
     classifiers=[

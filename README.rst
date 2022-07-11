@@ -4,6 +4,10 @@ RPC Dataloader
 
 This library implements a variant of the PyTorch Dataloader using remote workers.
 This allows to distribute workers over remote servers rather than the one running the main script.
+
+To use it, start one or several worker daemons on remote computers.
+The RPCDataloader on the main computer will dispatch requests for items to the workers and await the returned value.
+
 Though similar to `torch.rpc <https://pytorch.org/docs/stable/rpc.html>`_, this library uses its own implementation of RPC (Remote Procedure Call) which is simpler (no initialization) and does not conflict with the one from pytorch.
 
 
@@ -26,7 +30,7 @@ Then in your script, instantiate the dataloader:
         def __init__(self, root, train=True):
             ...
 
-    dataloader = RPCDataloader(
+    dataloader = rpcdataloader.RPCDataloader(
         workers=['node01:6543'],
         dataset=MyDataset,
         kwargs={'root': '/data/mydataset', 'train': True},
@@ -86,7 +90,7 @@ To distribute your workers on cpu nodes and your trainers on GPU nodes, use the 
     worker_task_pid=$?
 
     # wait for workers to start and parse worker list
-    tail -F -f ${OUT_DIR}/workers | head -n $SLURM_NTASKS_PER_NODE_HET_GROUP_1
+    tail -F -f ${OUT_DIR}/workers | head -n $SLURM_NTASKS_PER_NODE_HET_GROUP_1 > /dev/null
     export workers=$(tr '\n' ' ' < ${OUT_DIR}/workers)
 
     # run training script

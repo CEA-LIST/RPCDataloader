@@ -32,7 +32,8 @@ release = '0.0.1'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx_autodoc_typehints'
+    'sphinx_autodoc_typehints',
+    'sphinx.ext.githubpages'
 ]
 
 typehints_defaults = 'braces-after'
@@ -41,8 +42,6 @@ typehints_defaults = 'braces-after'
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-
-root_doc = 'doc/index'
 
 # -- Options for HTML output -------------------------------------------------
 
