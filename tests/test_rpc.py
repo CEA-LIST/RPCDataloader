@@ -26,7 +26,7 @@ def worker():
 def test_rpc_async(worker):
     host, port = worker
 
-    a = random.randbytes(1024)
+    a = bytes([random.randint(0, 255) for _ in range(0, 1000)])
     f = rpc_async(host, port, do, (a,))
     b, c = f.wait()
 
@@ -37,7 +37,7 @@ def test_rpc_async(worker):
 def test_rpc_pin(worker):
     host, port = worker
 
-    a = random.randbytes(1024)
+    a = bytes([random.randint(0, 255) for _ in range(0, 1000)])
     f = rpc_async(host, port, do, (a,), pin_memory=True)
     _, c = f.wait()
 

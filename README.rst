@@ -1,3 +1,7 @@
+.. image:: https://img.shields.io/badge/doc-latest-brightgreen
+   :target: https://cea-list.github.io/RPCDataloader
+   :alt: Documentation
+
 ==============
 RPC Dataloader
 ==============

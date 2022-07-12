@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 with open('README.rst') as f:
@@ -18,6 +18,7 @@ setup(
         'numpy',
         'torch',
         'tblib',
+        'typing;python_version<"3.9"'
     ],
     tests_require=[
         'pytest'
@@ -26,6 +27,7 @@ setup(
         'test': ['pytest'],
         'doc': ['sphinx', 'sphinx-autodoc-typehints', 'sphinx-rtd-theme']
     },
+    packages=find_packages(where='rpcdataloader'),
     classifiers=[
         'License :: CeCILL-C Free Software License Agreement (CECILL-C)',
         'Development Status :: 4 - Beta',

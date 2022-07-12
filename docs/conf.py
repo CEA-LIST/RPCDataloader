@@ -33,10 +33,16 @@ release = '0.0.1'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx_autodoc_typehints',
-    'sphinx.ext.githubpages'
+    'sphinx.ext.githubpages',
+    'sphinx.ext.intersphinx',
 ]
 
 typehints_defaults = 'braces-after'
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'torch': ('https://pytorch.org/docs/stable', None)
+}
+
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

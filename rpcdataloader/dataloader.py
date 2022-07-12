@@ -120,7 +120,7 @@ class RPCDataloader:
     """
     def __init__(
         self,
-        workers: list[str],
+        workers: Sequence[str],
         dataset,
         args=[],
         kwargs={},

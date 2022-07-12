@@ -123,6 +123,7 @@ def rpc_async(
     :param timeout: timeout in seconds on network operations
 
     :return: A future that will contain the function return value.
+    :rtype: :class:`torch.futures.Future`
     """
     fut = Future()
     t = threading.Thread(
