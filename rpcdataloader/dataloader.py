@@ -116,7 +116,7 @@ class RPCDataloader:
 
     .. note::
         In a distributed setup, you should probably split the workers between
-        the trainers.
+        the trainers (ie: :code:`worker=workers[rank::world_size]`).
     """
     def __init__(
         self,

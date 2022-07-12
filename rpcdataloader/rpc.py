@@ -180,13 +180,13 @@ def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1, lo
     :param log_hostname: print `<hostname>`:`<port>` once ready
 
     .. warning::
-       The workers implements neither authentication nor encryption, any
+       The workers neither implement authentication nor encryption, any
        user on the network can send arbitrary commands or may listen to the
        traffic from/to the worker.
 
     .. note::
        * each request is processed in a separate thread
-       * network transfers may overlap regardless of :attr:`parallel`
+       * network transfers may overlap regardless of :attr:`parallel` argument.
     """
     parallel_sem = threading.Semaphore(parallel)
     with socket.create_server(

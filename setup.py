@@ -16,7 +16,7 @@ setup(
     license_files=['LICENSE.txt'],
     install_requires=[
         'numpy',
-        'pytorch',
+        'torch',
         'tblib',
     ],
     tests_require=[
