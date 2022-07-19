@@ -22,12 +22,15 @@ import struct
 import threading
 from typing import Callable, TypeVar
 
-import torch
 from tblib import pickling_support
-from torch.futures import Future
 
 # absolute import required for unpickling
-from rpcdataloader.utils import pickle_tensor
+from rpcdataloader.utils import Future, pkl_dispatch_table
+# from .pinned_buffer import PinnedBuffer
+try:
+    import torch
+except ImportError:
+    torch = None
 
 
 pickling_support.install()
@@ -41,7 +44,7 @@ def _serialize(obj, buffer_callback=None):
     pickler = pickle.Pickler(
         buffer, protocol=pickle.HIGHEST_PROTOCOL, buffer_callback=buffer_callback
     )
-    pickler.dispatch_table = {torch.Tensor: pickle_tensor}
+    pickler.dispatch_table = pkl_dispatch_table
     pickler.dump(obj)
     return buffer.getvalue()
 
@@ -80,7 +83,12 @@ def _rpc_send_command(host, port, fut, func, args, kwargs, pin_memory, timeout):
             for _ in range(nbuffers):
                 payload = _sock_read(s, struct.calcsize("L"))
                 (n,) = struct.unpack("L", payload)
-                b = torch.empty(n, dtype=torch.uint8, pin_memory=pin_memory).numpy()
+
+                if pin_memory:
+                    # b = PinnedBuffer(n)
+                    b = torch.empty(n, dtype=torch.uint8, pin_memory=pin_memory).numpy()
+                else:
+                    b = bytearray(n)
 
                 _sock_read(s, n, b)
 
@@ -106,8 +114,8 @@ def rpc_async(
     host: str,
     port: int,
     func: Callable[..., _T],
-    args=(),
-    kwargs={},
+    args=None,
+    kwargs=None,
     pin_memory=False,
     timeout=120.0,
 ) -> Future[_T]:
@@ -142,6 +150,11 @@ def _handle_client(sock, parallel_sem):
     (n,) = struct.unpack("L", payload)
     payload = _sock_read(sock, n)
     cmd, args, kwargs = pickle.loads(payload)
+
+    if args is None:
+        args = ()
+    if kwargs is None:
+        kwargs = {}
 
     try:
         with parallel_sem:

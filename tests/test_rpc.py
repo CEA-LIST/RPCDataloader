@@ -1,13 +1,16 @@
 import random
 import multiprocessing
-import torch
 import pytest
+try:
+    import torch
+except ImportError:
+    torch = None
 
 from rpcdataloader import run_worker, rpc_async
 
 
 def do(a):
-    return a, torch.rand(1024)
+    return a, random.randbytes(1024) if torch is None else torch.rand(1024)
 
 
 @pytest.fixture(scope='function')
@@ -34,6 +37,7 @@ def test_rpc_async(worker):
     assert len(c) == 1024
 
 
+@pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_rpc_pin(worker):
     host, port = worker
 

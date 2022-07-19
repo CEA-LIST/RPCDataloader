@@ -18,20 +18,13 @@ import itertools
 import socket
 import uuid
 import weakref
-from typing import Optional, Sequence
 
-import torch.distributed
-import torch.futures
-from torch.utils.data import (
+from .utils import (
     BatchSampler,
-    DistributedSampler,
     RandomSampler,
-    Sampler,
     SequentialSampler,
     default_collate,
-    Dataset,
 )
-
 from .rpc import rpc_async
 
 
@@ -39,6 +32,11 @@ _datasets = {}
 
 
 def _create_dataset(uid, dataset_t, args, kwargs):
+    if args is None:
+        args = []
+    if kwargs is None:
+        kwargs = {}
+
     _datasets[uid] = dataset_t(*args, **kwargs)
 
 
@@ -60,7 +58,7 @@ def _get_batch(uid, items, collate_fn=None):
     return values if collate_fn is None else collate_fn(values)
 
 
-class _SizedPlaceholder(Dataset):
+class _SizedPlaceholder:
     def __init__(self, n: int):
         self.n = n
 
@@ -109,7 +107,6 @@ class RPCDataloader:
 
     Differences with pytorch dataloader:
 
-    * The default sampler automatically uses DistributedSampler if distributed mode is initialized.
     * Only mappable dataset are supported (Dataset, not IterableDataset)
     * timeout is the timeout on individual network operations
     * :attr:`worker_init_fn` and :attr:`generator` are not supported.
@@ -118,58 +115,60 @@ class RPCDataloader:
         In a distributed setup, you should probably split the workers between
         the trainers (ie: :code:`worker=workers[rank::world_size]`).
     """
+
     def __init__(
         self,
-        workers: Sequence[str],
+        workers,
         dataset,
-        args=[],
-        kwargs={},
-        batch_size: Optional[int] = 1,
-        shuffle: bool = False,
-        sampler: Optional[Sampler[int]] = None,
-        batch_sampler: Optional[Sampler[Sequence[int]]] = None,
+        args=None,
+        kwargs=None,
+        batch_size=1,
+        shuffle=False,
+        sampler=None,
+        batch_sampler=None,
         collate_fn=None,
-        pin_memory: bool = False,
-        drop_last: bool = False,
-        timeout: float = 120,
+        pin_memory=False,
+        drop_last=False,
+        timeout=120,
         *,
         prefetch_factor: int = 2,
     ):
         # Identify remotes
         self.remotes = []
-        for r in workers:
-            h, p = r.split(":")
-            h = socket.gethostbyname(h)
-            p = int(p)
-            self.remotes.append((h, p, uuid.uuid1()))
+        for w in workers:
+            host, port = w.split(":")
+            host = socket.gethostbyname(host)
+            port = int(port)
+            self.remotes.append((host, port, uuid.uuid1()))
 
         # Instanciate dataset on remote workers
         futures = []
-        for h, p, u in self.remotes:
+        for host, port, dataset_uid in self.remotes:
             futures.append(
                 rpc_async(
-                    h,
-                    p,
+                    host,
+                    port,
                     _create_dataset,
-                    args=[u, dataset, args, kwargs],
+                    args=[dataset_uid, dataset, args, kwargs],
                     pin_memory=pin_memory,
                 )
             )
-            weakref.finalize(self, rpc_async, h, p, _delete_dataset, [u])
+            weakref.finalize(
+                self, rpc_async, host, port, _delete_dataset, [dataset_uid]
+            )
 
-        torch.futures.collect_all(futures).wait()
+        for f in futures:
+            f.wait()
 
         # Check dataset size
-        h0, p0, u0 = self.remotes[0]
-        size = rpc_async(h0, p0, _len_dataset, args=[u0]).wait()
+        host0, port0, dataset_uid0 = self.remotes[0]
+        size = rpc_async(host0, port0, _len_dataset, args=[dataset_uid0]).wait()
 
         # Samplers
         if sampler is None:
             placeholder = _SizedPlaceholder(size)
 
-            if torch.distributed.is_initialized():
-                sampler = DistributedSampler(placeholder, shuffle=shuffle)
-            elif shuffle:
+            if shuffle:
                 sampler = RandomSampler(placeholder)
             else:
                 sampler = SequentialSampler(placeholder)
@@ -194,12 +193,16 @@ class RPCDataloader:
 
     def _iter_tasks(self):
         if self.batch_sampler is None:
-            for (h, p, u), i in zip(itertools.cycle(self.remotes), self.sampler):
-                yield h, p, (u, i)
+            for (host, port, dataset_uid), i in zip(
+                itertools.cycle(self.remotes), self.sampler
+            ):
+                yield host, port, (dataset_uid, i)
 
         else:
-            for (h, p, u), i in zip(itertools.cycle(self.remotes), self.batch_sampler):
-                yield h, p, (u, i, self.collate_fn)
+            for (host, port, dataset_uid), i in zip(
+                itertools.cycle(self.remotes), self.batch_sampler
+            ):
+                yield host, port, (dataset_uid, i, self.collate_fn)
 
     def __iter__(self):
         get_fn = _get_item if self.batch_sampler is None else _get_batch
@@ -212,12 +215,12 @@ class RPCDataloader:
             # preload jobs
             for _ in range(self.prefetch_factor * len(self.remotes)):
                 try:
-                    h, p, get_args = next(task_it)
+                    host, port, get_args = next(task_it)
                 except StopIteration:
                     break
                 else:
                     queue.append(
-                        rpc_async(h, p, get_fn, get_args, timeout=self.timeout)
+                        rpc_async(host, port, get_fn, get_args, timeout=self.timeout)
                     )
 
             while len(queue) > 0:
@@ -225,16 +228,20 @@ class RPCDataloader:
 
                 # queue another job
                 try:
-                    h, p, get_args = next(task_it)
+                    host, port, get_args = next(task_it)
                 except StopIteration:
                     break
                 else:
                     queue.append(
-                        rpc_async(h, p, get_fn, get_args, timeout=self.timeout)
+                        rpc_async(host, port, get_fn, get_args, timeout=self.timeout)
                     )
 
                 # return value
                 yield result
 
         finally:
-            torch.futures.collect_all(queue).wait()
+            for f in queue:
+                try:
+                    f.wait()
+                except BaseException:
+                    pass
