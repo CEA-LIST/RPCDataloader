@@ -51,7 +51,7 @@ def _len_dataset(uid):
 
 
 def _get_item(uid, item):
-    _datasets[uid][item]
+    return _datasets[uid][item]
 
 
 def _get_batch(uid, items, collate_fn=None):
