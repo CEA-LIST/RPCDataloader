@@ -44,7 +44,7 @@ except ImportError:
     except ImportError:
         np = None
 
-    pkl_dispatch_table = None
+    pkl_dispatch_table = {}
 
     S = TypeVar("S")
     T = TypeVar("T")

@@ -1,3 +1,4 @@
+import os
 import random
 import multiprocessing
 import pytest
@@ -10,7 +11,7 @@ from rpcdataloader import run_worker, rpc_async
 
 
 def do(a):
-    return a, random.randbytes(1024) if torch is None else torch.rand(1024)
+    return a, os.urandom(1024) if torch is None else torch.rand(1024)
 
 
 @pytest.fixture(scope='function')
