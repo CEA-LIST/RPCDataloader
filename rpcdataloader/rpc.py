@@ -15,18 +15,23 @@
 # knowledge of the CeCILL-C license and that you accept its terms.
 
 import io
-import pickle
+import sys
 import select
 import socket
 import struct
 import threading
 from typing import Callable, TypeVar
 
+if sys.version_info < (3, 8):
+    import pickle5 as pickle
+else:
+    import pickle
+
 from tblib import pickling_support
 
 # absolute import required for unpickling
 from rpcdataloader.utils import Future, pkl_dispatch_table
-# from .pinned_buffer import PinnedBuffer
+
 try:
     import torch
 except ImportError:
@@ -62,12 +67,23 @@ def _sock_read(sock, size, buffer=None):
     return buffer
 
 
+def _create_connection(*kargs, **kwargs):
+    for i in range(5):
+        try:
+            return socket.create_connection(*kargs, **kwargs)
+        except OSError as e:
+            if i == 4:
+                raise e from None
+            else:
+                time.sleep(1)
+
+
 def _rpc_send_command(host, port, fut, func, args, kwargs, pin_memory, timeout):
     try:
         payload = _serialize((func, args, kwargs))
 
         # connect to server
-        with socket.create_connection((host, port), timeout=timeout) as s:
+        with _create_connection((host, port), timeout=timeout) as s:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
             # send command
@@ -85,7 +101,6 @@ def _rpc_send_command(host, port, fut, func, args, kwargs, pin_memory, timeout):
                 (n,) = struct.unpack("L", payload)
 
                 if pin_memory:
-                    # b = PinnedBuffer(n)
                     b = torch.empty(n, dtype=torch.uint8, pin_memory=pin_memory).numpy()
                 else:
                     b = bytearray(n)
@@ -184,14 +199,27 @@ def _handle_client(sock, parallel_sem):
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_CORK, 0)
 
 
-def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1, log_hostname=True):
+def _create_server(address, *, family=socket.AF_INET, backlog=None):
+    sock = socket.socket(family, socket.SOCK_STREAM)
+    try:
+        sock.bind(address)
+        if backlog is None:
+            sock.listen()
+        else:
+            sock.listen(backlog)
+        return sock
+    except error:
+        sock.close()
+        raise
+
+
+def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1):
     """Start listening and processing remote procedure calls.
 
     :param host: interface to bind to (set to '0.0.0.0' for all interfaces)
     :param port: port to bind to
     :param timeout: timeout on network transfers from/to client
     :param parallel: max number procedures executing concurrently
-    :param log_hostname: print `<hostname>`:`<port>` once ready
 
     .. warning::
        The workers neither implement authentication nor encryption, any
@@ -199,17 +227,13 @@ def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1, lo
        traffic from/to the worker.
 
     .. note::
-
       - each request is processed in a separate thread
       - network transfers may overlap regardless of :attr:`parallel` argument.
+      - if a worker has multiple network interfaces and IPs, make sure to choose
+        the fastest one (eg: infiniband vs gigabit ethernet).
     """
     parallel_sem = threading.Semaphore(parallel)
-    with socket.create_server(
-        (host, port), family=socket.AF_INET, backlog=2048, reuse_port=True
-    ) as sock:
-        if log_hostname:
-            print(f"{socket.gethostname()}:{port}")
-
+    with _create_server((host, port), family=socket.AF_INET, backlog=2048) as sock:
         while True:
             client_sock, _ = sock.accept()
             client_sock.settimeout(timeout)

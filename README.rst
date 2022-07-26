@@ -38,14 +38,10 @@ Then instantiate the dataloader:
 
 .. code:: python
 
-    class MyDataset(torch.utils.data.Dataset):
-        def __init__(self, root, train=True):
-            ...
-
     dataloader = rpcdataloader.RPCDataloader(
         workers=['node01:6543'],
-        dataset=MyDataset,
-        kwargs={'root': '/data/mydataset', 'train': True},
+        dataset=torchvision.datasets.FakeData,
+        kwargs={'transform': torchvision.transforms.ToTensor()},
         batch_size=2,
         shuffle=True,
         pin_memory=True)
@@ -53,7 +49,6 @@ Then instantiate the dataloader:
     for minibatch in dataloader:
         ...
 
-For convenience, :code:`rpcdataloader.run_worker` prints "<hostname>:<port>" to stdout once ready to process commands, this can be read and passed on to :code:`rpcdataloader.RPCDataloader`.
 
 Slurm integration
 =================
@@ -81,34 +76,34 @@ To distribute your workers on cpu nodes and your trainers on GPU nodes, use the 
     #SBATCH --cpus-per-task=2
     #SBATCH --mem=72G
 
-    source ~/miniconda3/etc/profile.d/conda.sh
-    conda activate myenv
-
-    export OMP_NUM_THREADS=2
-    export MASTER_ADDR="$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n1)"
-    export MASTER_PORT=$((29400 + $SLURM_JOB_ID % 10000))
-    export PYTHONPATH=$PWD
-
     # create an output dir
-    export OUT_DIR="${HOME}/Experiments/dirange/${SLURM_JOB_NAME}.${SLURM_JOB_ID}"
+    export OUT_DIR="./outputs/${SLURM_JOB_NAME}.${SLURM_JOB_ID}"
     mkdir -p $OUT_DIR
 
     # start workers and collect host and port list
-    # the subshell is needed because SLURM_PROCID is set by srun for each worker
-    rm -f ${OUT_DIR}/workers
-    srun --het-group=1 -I --exclusive --exact --kill-on-bad-exit=1 sh -c '
-        port=$(( $MASTER_PORT + $SLURM_PROCID - $SLURM_NTASKS_HET_GROUP_0 + 1 ))
-        python -u -m rpc.launch --host=0.0.0.0 --port=$port >> ${OUT_DIR}/workers
-        ' &
-    worker_task_pid=$?
+    rm -f ${OUT_DIR}/workers && touch ${OUT_DIR}/workers
+    srun --het-group=1 -I --exclusive --kill-on-bad-exit=1 \
+        sh -c '
+            export port=$(( 16384 + $RANDOM % 49182 ))
+            echo $(hostname):$port \
+                | flock ${OUT_DIR}/workers tee -a ${OUT_DIR}/workers \
+                &> /dev/null
+            python -u -m rpcdataloader.launch --host=0.0.0.0 --port=$port
+            ' &
+    worker_task_pid=$!
 
-    # wait for workers to start and parse worker list
-    tail -F -f ${OUT_DIR}/workers | head -n $SLURM_NTASKS_PER_NODE_HET_GROUP_1 > /dev/null
+    # block until all workers have written their address and port
+    tail -f ${OUT_DIR}/workers | head -n $SLURM_NTASKS_PER_NODE_HET_GROUP_1
+
+    # parse worker list
     export workers=$(tr '\n' ' ' < ${OUT_DIR}/workers)
 
     # run training script
-    srun --het-group=0 -I --exclusive --exact --kill-on-bad-exit=1 \
-        python -u experiments/sem/train_rpc.py --workers $workers
+    export MASTER_ADDR="$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n1)"
+    export MASTER_PORT=$(( 16384 + $RANDOM % 49182 ))
+    srun --het-group=0 -I --exclusive --kill-on-bad-exit=1 \
+        python -u example.py \
+            --workers $workers
 
     # stop workers
     kill $worker_task_pid

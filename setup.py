@@ -1,23 +1,8 @@
-from setuptools import setup, find_packages  # , Extension
-
-# from distutils.spawn import find_executable
-# import os
+from setuptools import setup, find_packages
 
 
 with open("README.rst", "r") as f:
     long_description = f.read()
-
-
-# detect cuda installation
-# if 'CUDA_HOME' in os.environ:
-#     CUDA_HOME = os.environ['CUDA_HOME']
-# elif find_executable('nvcc') is not None:
-#     CUDA_HOME = os.path.dirname(find_executable('nvcc'))
-# elif os.path.isdir('/usr/loca/cuda'):
-#     CUDA_HOME = '/usr/loca/cuda'
-# else:
-#    print("CUDA_HOME environment is not set or does not exist".format(CUDA_HOME))
-#    exit(-1)
 
 
 setup(
@@ -29,20 +14,17 @@ setup(
     long_description=long_description,
     long_description_content_type="text/x-rst",
     license_files=["LICENSE.txt"],
-    install_requires=["tblib", 'typing;python_version<"3.9"'],
+    install_requires=[
+        "tblib",
+        'typing;python_version<"3.9"',
+        'pickle5;python_version<"3.8"',
+    ],
     tests_require=["pytest"],
     extras_require={
         "pytorch": ["torch", "numpy"],
         "test": ["pytest"],
         "doc": ["sphinx", "sphinx-rtd-theme"],
     },
-    # ext_modules=[
-    #     Extension(
-    #         name='rpcdataloader.pinned_buffer',
-    #         sources=['rpcdataloader/pinned_buffer.c'],
-    #         include_dirs=[os.path.join(CUDA_HOME, 'include')],
-    #         extra_link_args=['-L' + os.path.join(CUDA_HOME, 'lib64'), '-lcudart'])
-    # ],
     packages=find_packages(),
     classifiers=[
         "License :: CeCILL-C Free Software License Agreement (CECILL-C)",
