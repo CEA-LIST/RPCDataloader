@@ -43,7 +43,7 @@ setup(
     #         include_dirs=[os.path.join(CUDA_HOME, 'include')],
     #         extra_link_args=['-L' + os.path.join(CUDA_HOME, 'lib64'), '-lcudart'])
     # ],
-    packages=find_packages(where="rpcdataloader"),
+    packages=find_packages(),
     classifiers=[
         "License :: CeCILL-C Free Software License Agreement (CECILL-C)",
         "Development Status :: 4 - Beta",

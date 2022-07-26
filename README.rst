@@ -15,6 +15,14 @@ The RPCDataloader on the main computer will dispatch requests for items to the w
 Though similar to `torch.rpc <https://pytorch.org/docs/stable/rpc.html>`_, this library uses its own implementation of RPC (Remote Procedure Call) which is simpler (no initialization) and does not conflict with the one from pytorch.
 
 
+Installation
+============
+
+.. code:: shell
+
+    pip install git+https://github.com/CEA-LIST/RPCDataloader.git#egg=rpcdataloader
+
+
 Usage
 =====
 
@@ -24,9 +32,9 @@ To use the RPC dataloader, start a few workers either from the command line:
 
     python -m rpcdataloader.launch --host=0.0.0.0 --port=6543
 
-or by calling :code:`rpcdataloader.run_worker`.
+or by calling :code:`rpcdataloader.run_worker` directly from a python script.
 
-Then in your script, instantiate the dataloader:
+Then instantiate the dataloader:
 
 .. code:: python
 
@@ -45,6 +53,7 @@ Then in your script, instantiate the dataloader:
     for minibatch in dataloader:
         ...
 
+For convenience, :code:`rpcdataloader.run_worker` prints "<hostname>:<port>" to stdout once ready to process commands, this can be read and passed on to :code:`rpcdataloader.RPCDataloader`.
 
 Slurm integration
 =================
@@ -85,7 +94,7 @@ To distribute your workers on cpu nodes and your trainers on GPU nodes, use the 
     mkdir -p $OUT_DIR
 
     # start workers and collect host and port list
-    # the subshell is needed because SLURM_PROCID is a task variable
+    # the subshell is needed because SLURM_PROCID is set by srun for each worker
     rm -f ${OUT_DIR}/workers
     srun --het-group=1 -I --exclusive --exact --kill-on-bad-exit=1 sh -c '
         port=$(( $MASTER_PORT + $SLURM_PROCID - $SLURM_NTASKS_HET_GROUP_0 + 1 ))

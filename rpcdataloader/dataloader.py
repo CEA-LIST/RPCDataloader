@@ -107,9 +107,9 @@ class RPCDataloader:
 
     Differences with pytorch dataloader:
 
-    * Only mappable dataset are supported (Dataset, not IterableDataset)
-    * timeout is the timeout on individual network operations
-    * :attr:`worker_init_fn` and :attr:`generator` are not supported.
+    - Only mappable dataset are supported (Dataset, not IterableDataset)
+    - timeout is the timeout on individual network operations
+    - :attr:`worker_init_fn` and :attr:`generator` are not supported.
 
     .. note::
         In a distributed setup, you should probably split the workers between

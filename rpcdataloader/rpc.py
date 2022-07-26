@@ -199,8 +199,9 @@ def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1, lo
        traffic from/to the worker.
 
     .. note::
-       * each request is processed in a separate thread
-       * network transfers may overlap regardless of :attr:`parallel` argument.
+
+      - each request is processed in a separate thread
+      - network transfers may overlap regardless of :attr:`parallel` argument.
     """
     parallel_sem = threading.Semaphore(parallel)
     with socket.create_server(
