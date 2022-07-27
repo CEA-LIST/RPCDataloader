@@ -2,10 +2,7 @@ import os
 import random
 import multiprocessing
 import pytest
-try:
-    import torch
-except ImportError:
-    torch = None
+import torch
 
 from rpcdataloader import run_worker, rpc_async
 
@@ -38,7 +35,7 @@ def test_rpc_async(worker):
     assert len(c) == 1024
 
 
-@pytest.mark.skipif(torch is None, reason="torch not installed")
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda unvailable")
 def test_rpc_pin(worker):
     host, port = worker
 

@@ -18,10 +18,11 @@ setup(
         "tblib",
         'typing;python_version<"3.9"',
         'pickle5;python_version<"3.8"',
+        'torch',
+        'numpy'
     ],
     tests_require=["pytest"],
     extras_require={
-        "pytorch": ["torch", "numpy"],
         "test": ["pytest"],
         "doc": ["sphinx", "sphinx-rtd-theme"],
     },

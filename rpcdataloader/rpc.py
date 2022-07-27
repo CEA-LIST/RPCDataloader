@@ -20,6 +20,7 @@ import select
 import socket
 import struct
 import threading
+import time
 from typing import Callable, TypeVar
 
 if sys.version_info < (3, 8):
@@ -28,14 +29,10 @@ else:
     import pickle
 
 from tblib import pickling_support
+import torch
 
 # absolute import required for unpickling
-from rpcdataloader.utils import Future, pkl_dispatch_table
-
-try:
-    import torch
-except ImportError:
-    torch = None
+from rpcdataloader.utils import pkl_dispatch_table
 
 
 pickling_support.install()
@@ -133,7 +130,7 @@ def rpc_async(
     kwargs=None,
     pin_memory=False,
     timeout=120.0,
-) -> Future[_T]:
+) -> torch.futures.Future[_T]:
     """Execute function on remote worker and return the result as a future.
 
     :param host: rpc worker host
@@ -148,7 +145,7 @@ def rpc_async(
     :return: A future that will contain the function return value.
     :rtype: :class:`torch.futures.Future`
     """
-    fut = Future()
+    fut = torch.futures.Future()
     t = threading.Thread(
         target=_rpc_send_command,
         args=(host, port, fut, func, args, kwargs, pin_memory, timeout),
@@ -208,9 +205,9 @@ def _create_server(address, *, family=socket.AF_INET, backlog=None):
         else:
             sock.listen(backlog)
         return sock
-    except error:
+    except BaseException as e:
         sock.close()
-        raise
+        raise e from None
 
 
 def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1):

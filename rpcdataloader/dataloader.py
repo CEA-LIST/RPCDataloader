@@ -19,7 +19,8 @@ import socket
 import uuid
 import weakref
 
-from .utils import (
+import torch
+from torch.utils.data import (
     BatchSampler,
     RandomSampler,
     SequentialSampler,
@@ -108,6 +109,8 @@ class RPCDataloader:
     Differences with pytorch dataloader:
 
     - Only mappable dataset are supported (Dataset, not IterableDataset)
+    - If distributed mode is initialized, :attr:`sampler` automatically
+      uses :class:`torch.utils.data.distributed.DistributedSampler`.
     - timeout is the timeout on individual network operations
     - :attr:`worker_init_fn` and :attr:`generator` are not supported.
 
@@ -162,14 +165,20 @@ class RPCDataloader:
 
         # Check dataset size
         host0, port0, dataset_uid0 = self.remotes[0]
-        size = rpc_async(host0, port0, _len_dataset, args=[dataset_uid0]).wait()
 
         # Samplers
         if sampler is None:
+            size = rpc_async(host0, port0, _len_dataset, args=[dataset_uid0]).wait()
             placeholder = _SizedPlaceholder(size)
 
-            if shuffle:
+            if torch.distributed.is_available() and torch.distributed.is_initialized():
+                sampler = torch.utils.data.distributed.DistributedSampler(
+                    placeholder, shuffle=shuffle
+                )
+
+            elif shuffle:
                 sampler = RandomSampler(placeholder)
+
             else:
                 sampler = SequentialSampler(placeholder)
 
@@ -230,7 +239,7 @@ class RPCDataloader:
                 try:
                     host, port, get_args = next(task_it)
                 except StopIteration:
-                    break
+                    pass
                 else:
                     queue.append(
                         rpc_async(host, port, get_fn, get_args, timeout=self.timeout)
