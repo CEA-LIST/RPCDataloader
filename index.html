@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RPCDataloader documentation &mdash; rpcdataloader 0.0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> rpcdataloader
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">RPCDataloader documentation</a></li>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#usage">Usage</a></li>
+<li><a class="reference internal" href="#slurm-integration">Slurm integration</a></li>
+<li><a class="reference internal" href="#module-rpcdataloader">API</a></li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">rpcdataloader</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+      <li>RPCDataloader documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="rpcdataloader-documentation">
+<h1>RPCDataloader documentation<a class="headerlink" href="#rpcdataloader-documentation" title="Permalink to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<p>This library implements a variant of the PyTorch Dataloader using remote workers.
+This allows to distribute workers over remote servers rather than the one running the main script.</p>
+<p>To use it, start one or several worker daemons on remote computers.
+The RPCDataloader on the main computer will dispatch requests for items to the workers and await the returned value.</p>
+<p>Though similar to <a class="reference external" href="https://pytorch.org/docs/stable/rpc.html">torch.rpc</a>, this library uses its own implementation of RPC (Remote Procedure Call) which is simpler (no initialization) and does not conflict with the one from pytorch.</p>
+</section>
+<section id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h1>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip install git+https://github.com/CEA-LIST/RPCDataloader.git#egg<span class="o">=</span>rpcdataloader
+</pre></div>
+</div>
+</section>
+<section id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Permalink to this heading"></a></h1>
+<p>To use the RPC dataloader, start a few workers either from the command line:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python -m rpcdataloader.launch --host<span class="o">=</span><span class="m">0</span>.0.0.0 --port<span class="o">=</span><span class="m">6543</span>
+</pre></div>
+</div>
+<p>or by calling <code class="code docutils literal notranslate"><span class="pre">rpcdataloader.run_worker</span></code> directly from a python script.</p>
+<p>Then instantiate the dataloader:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dataloader</span> <span class="o">=</span> <span class="n">rpcdataloader</span><span class="o">.</span><span class="n">RPCDataloader</span><span class="p">(</span>
+    <span class="n">workers</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;node01:6543&#39;</span><span class="p">],</span>
+    <span class="n">dataset</span><span class="o">=</span><span class="n">torchvision</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">FakeData</span><span class="p">,</span>
+    <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;transform&#39;</span><span class="p">:</span> <span class="n">torchvision</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">()},</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">pin_memory</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">minibatch</span> <span class="ow">in</span> <span class="n">dataloader</span><span class="p">:</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="slurm-integration">
+<h1>Slurm integration<a class="headerlink" href="#slurm-integration" title="Permalink to this heading"></a></h1>
+<p>Slurm integration is a little tricky as it relies on a rather exotic functionality: <a class="reference external" href="https://slurm.schedmd.com/heterogeneous_jobs.html">heterogeneous jobs</a>.
+To distribute your workers on cpu nodes and your trainers on GPU nodes, use the following slurm script template:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env sh</span>
+<span class="c1">#SBATCH --time=3-00:00:00</span>
+
+<span class="c1">#SBATCH --partition=gpu</span>
+<span class="c1">#SBATCH --nodes=1</span>
+<span class="c1">#SBATCH --ntasks-per-node=2</span>
+<span class="c1">#SBATCH --cpus-per-task=2</span>
+<span class="c1">#SBATCH --mem=64G</span>
+<span class="c1">#SBATCH --gres=gpu:2</span>
+
+<span class="c1">#SBATCH hetjob</span>
+
+<span class="c1">#SBATCH --partition=cpu</span>
+<span class="c1">#SBATCH --nodes=1</span>
+<span class="c1">#SBATCH --ntasks-per-node=16</span>
+<span class="c1">#SBATCH --cpus-per-task=2</span>
+<span class="c1">#SBATCH --mem=72G</span>
+
+<span class="c1"># create an output dir</span>
+<span class="nb">export</span> <span class="nv">OUT_DIR</span><span class="o">=</span><span class="s2">&quot;./outputs/</span><span class="si">${</span><span class="nv">SLURM_JOB_NAME</span><span class="si">}</span><span class="s2">.</span><span class="si">${</span><span class="nv">SLURM_JOB_ID</span><span class="si">}</span><span class="s2">&quot;</span>
+mkdir -p <span class="nv">$OUT_DIR</span>
+
+<span class="c1"># start workers and collect host and port list</span>
+rm -f <span class="si">${</span><span class="nv">OUT_DIR</span><span class="si">}</span>/workers <span class="o">&amp;&amp;</span> touch <span class="si">${</span><span class="nv">OUT_DIR</span><span class="si">}</span>/workers
+srun --het-group<span class="o">=</span><span class="m">1</span> -I --exclusive --kill-on-bad-exit<span class="o">=</span><span class="m">1</span> <span class="se">\</span>
+    sh -c <span class="s1">&#39;</span>
+<span class="s1">        export port=$(( 16384 + $RANDOM % 49182 ))</span>
+<span class="s1">        echo $(hostname):$port \</span>
+<span class="s1">            | flock ${OUT_DIR}/workers tee -a ${OUT_DIR}/workers \</span>
+<span class="s1">            &amp;&gt; /dev/null</span>
+<span class="s1">        python -u -m rpcdataloader.launch --host=0.0.0.0 --port=$port</span>
+<span class="s1">        &#39;</span> <span class="p">&amp;</span>
+<span class="nv">worker_task_pid</span><span class="o">=</span><span class="nv">$!</span>
+
+<span class="c1"># block until all workers have written their address and port</span>
+tail -f <span class="si">${</span><span class="nv">OUT_DIR</span><span class="si">}</span>/workers <span class="p">|</span> head -n <span class="nv">$SLURM_NTASKS_PER_NODE_HET_GROUP_1</span>
+
+<span class="c1"># parse worker list</span>
+<span class="nb">export</span> <span class="nv">workers</span><span class="o">=</span><span class="k">$(</span>tr <span class="s1">&#39;\n&#39;</span> <span class="s1">&#39; &#39;</span> &lt; <span class="si">${</span><span class="nv">OUT_DIR</span><span class="si">}</span>/workers<span class="k">)</span>
+
+<span class="c1"># run training script</span>
+<span class="nb">export</span> <span class="nv">MASTER_ADDR</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>scontrol show hostnames <span class="nv">$SLURM_JOB_NODELIST</span> <span class="p">|</span> head -n1<span class="k">)</span><span class="s2">&quot;</span>
+<span class="nb">export</span> <span class="nv">MASTER_PORT</span><span class="o">=</span><span class="k">$((</span> <span class="m">16384</span> <span class="o">+</span> <span class="nv">$RANDOM</span> <span class="o">%</span> <span class="m">49182</span> <span class="k">))</span>
+srun --het-group<span class="o">=</span><span class="m">0</span> -I --exclusive --kill-on-bad-exit<span class="o">=</span><span class="m">1</span> <span class="se">\</span>
+    python -u example.py <span class="se">\</span>
+        --workers <span class="nv">$workers</span>
+
+<span class="c1"># stop workers</span>
+<span class="nb">kill</span> <span class="nv">$worker_task_pid</span>
+</pre></div>
+</div>
+</section>
+<section id="module-rpcdataloader">
+<span id="api"></span><h1>API<a class="headerlink" href="#module-rpcdataloader" title="Permalink to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="rpcdataloader.RPCDataloader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">rpcdataloader.</span></span><span class="sig-name descname"><span class="pre">RPCDataloader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">workers</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shuffle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_sampler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collate_fn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pin_memory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefetch_factor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rpcdataloader.RPCDataloader" title="Permalink to this definition"></a></dt>
+<dd><p>A dataloader using remote rpc-based workers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>workers</strong> – list of rpc workers formatted as: “address:port”</p></li>
+<li><p><strong>dataset</strong> – dataset constructor</p></li>
+<li><p><strong>args</strong> – positional arguments for dataset constructor</p></li>
+<li><p><strong>kwargs</strong> – keyword arguments for dataset constructor</p></li>
+<li><p><strong>batch_size</strong> – how many samples per batch to load.</p></li>
+<li><p><strong>shuffle</strong> – set to <code class="docutils literal notranslate"><span class="pre">True</span></code> to have the data reshuffled at every epoch.</p></li>
+<li><p><strong>sampler</strong> – defines the strategy to draw samples from the dataset. Can be any
+<code class="docutils literal notranslate"><span class="pre">Iterable</span></code> with <code class="docutils literal notranslate"><span class="pre">__len__</span></code> implemented. If specified,
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">shuffle</span></code> must not be specified.</p></li>
+<li><p><strong>batch_sampler</strong> – like <code class="xref py py-attr docutils literal notranslate"><span class="pre">sampler</span></code>, but returns a batch of indices at a time.
+Mutually exclusive with <code class="xref py py-attr docutils literal notranslate"><span class="pre">batch_size</span></code>, <code class="xref py py-attr docutils literal notranslate"><span class="pre">shuffle</span></code>,
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">sampler</span></code>, and <code class="xref py py-attr docutils literal notranslate"><span class="pre">drop_last</span></code>.</p></li>
+<li><p><strong>num_workers</strong> – how many subprocesses to use for data loading. <code class="docutils literal notranslate"><span class="pre">0</span></code> means that the
+data will be loaded in the main process.</p></li>
+<li><p><strong>collate_fn</strong> – merges a list of samples to form a mini-batch of Tensor(s). Used
+when using batched loading from a map-style dataset.</p></li>
+<li><p><strong>pin_memory</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the data loader will copy Tensors into CUDA pinned
+memory before returning them. If your data elements are a custom
+type, or your <code class="xref py py-attr docutils literal notranslate"><span class="pre">collate_fn</span></code> returns a batch that is a custom
+type, see the example below.</p></li>
+<li><p><strong>drop_last</strong> – set to <code class="docutils literal notranslate"><span class="pre">True</span></code> to drop the last incomplete batch, if
+the dataset size is not divisible by the batch size. If <code class="docutils literal notranslate"><span class="pre">False</span></code>
+and the size of dataset is not divisible by the batch size, then the
+last batch will be smaller.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Differences with pytorch dataloader:</p>
+<ul class="simple">
+<li><p>Only mappable dataset are supported (Dataset, not IterableDataset)</p></li>
+<li><p>If distributed mode is initialized, <code class="xref py py-attr docutils literal notranslate"><span class="pre">sampler</span></code> automatically
+uses <a class="reference external" href="https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler" title="(in PyTorch v1.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.distributed.DistributedSampler</span></code></a>.</p></li>
+<li><p>timeout is the timeout on individual network operations</p></li>
+<li><p><code class="xref py py-attr docutils literal notranslate"><span class="pre">worker_init_fn</span></code> and <code class="xref py py-attr docutils literal notranslate"><span class="pre">generator</span></code> are not supported.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In a distributed setup, you should probably split the workers between
+the trainers (ie: <code class="code docutils literal notranslate"><span class="pre">worker=workers[rank::world_size]</span></code>).</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rpcdataloader.rpc_async">
+<span class="sig-prename descclassname"><span class="pre">rpcdataloader.</span></span><span class="sig-name descname"><span class="pre">rpc_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.10)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">_T</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pin_memory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">120.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Future</span><span class="p"><span class="pre">[</span></span><span class="pre">_T</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#rpcdataloader.rpc_async" title="Permalink to this definition"></a></dt>
+<dd><p>Execute function on remote worker and return the result as a future.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>host</strong> – rpc worker host</p></li>
+<li><p><strong>port</strong> – rpc worker port</p></li>
+<li><p><strong>func</strong> – function to execute, must be picklable as well as its output</p></li>
+<li><p><strong>args</strong> – positional arguments, must be picklable</p></li>
+<li><p><strong>kwargs</strong> – keword arguments, must be picklable</p></li>
+<li><p><strong>pin_memory</strong> – wether buffers of the return value should be allocated in pinned memory.</p></li>
+<li><p><strong>timeout</strong> – timeout in seconds on network operations</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A future that will contain the function return value.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/futures.html#torch.futures.Future" title="(in PyTorch v1.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">torch.futures.Future</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rpcdataloader.run_worker">
+<span class="sig-prename descclassname"><span class="pre">rpcdataloader.</span></span><span class="sig-name descname"><span class="pre">run_worker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rpcdataloader.run_worker" title="Permalink to this definition"></a></dt>
+<dd><p>Start listening and processing remote procedure calls.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>host</strong> – interface to bind to (set to ‘0.0.0.0’ for all interfaces)</p></li>
+<li><p><strong>port</strong> – port to bind to</p></li>
+<li><p><strong>timeout</strong> – timeout on network transfers from/to client</p></li>
+<li><p><strong>parallel</strong> – max number procedures executing concurrently</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The workers neither implement authentication nor encryption, any
+user on the network can send arbitrary commands or may listen to the
+traffic from/to the worker.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>each request is processed in a separate thread</p></li>
+<li><p>network transfers may overlap regardless of <code class="xref py py-attr docutils literal notranslate"><span class="pre">parallel</span></code> argument.</p></li>
+<li><p>if a worker has multiple network interfaces and IPs, make sure to choose
+the fastest one (eg: infiniband vs gigabit ethernet).</p></li>
+</ul>
+</div>
+</dd></dl>
+
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, CEA LIST.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
