@@ -16,5 +16,6 @@
 
 from .dataloader import RPCDataloader as RPCDataloader
 from .rpc import rpc_async as rpc_async, run_worker as run_worker
+from .utils import set_random_seeds as set_random_seeds
 
-__all__ = ['rpc_async', 'run_worker', 'RPCDataloader']
+__all__ = ['rpc_async', 'run_worker', 'RPCDataloader', 'set_random_seeds']

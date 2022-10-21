@@ -229,6 +229,8 @@ def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1):
       - if a worker has multiple network interfaces and IPs, make sure to choose
         the fastest one (eg: infiniband vs gigabit ethernet).
     """
+    torch.set_num_threads(1)  # prevent thread competition
+
     parallel_sem = threading.Semaphore(parallel)
     with _create_server((host, port), family=socket.AF_INET, backlog=2048) as sock:
         while True:

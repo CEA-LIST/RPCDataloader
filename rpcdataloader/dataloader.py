@@ -90,9 +90,6 @@ class RPCDataloader:
         like :attr:`sampler`, but returns a batch of indices at a time.
         Mutually exclusive with :attr:`batch_size`, :attr:`shuffle`,
         :attr:`sampler`, and :attr:`drop_last`.
-    :param num_workers:
-        how many subprocesses to use for data loading. ``0`` means that the
-        data will be loaded in the main process.
     :param collate_fn:
         merges a list of samples to form a mini-batch of Tensor(s). Used
         when using batched loading from a map-style dataset.
@@ -109,10 +106,15 @@ class RPCDataloader:
     Differences with pytorch dataloader:
 
     - Only mappable dataset are supported (Dataset, not IterableDataset)
-    - If distributed mode is initialized, :attr:`sampler` automatically
-      uses :class:`torch.utils.data.distributed.DistributedSampler`.
-    - timeout is the timeout on individual network operations
+    - If distributed mode is initialized, and :attr:`sampler` is not specified,
+      it defaults to :class:`torch.utils.data.distributed.DistributedSampler`.
+      Don't forget to call :code:`set_epoch` on :attr:`RPCDataloader.sampler`
+      at every epoch.
+    - :attr:`timeout` is the timeout on individual network operations
     - :attr:`worker_init_fn` and :attr:`generator` are not supported.
+    - Random seeds are not set automatically because workers are persistent
+      and not tied to a specific dataloader. See :func:`set_random_seeds` for
+      a way to set the seeds.
 
     .. note::
         In a distributed setup, you should probably split the workers between
