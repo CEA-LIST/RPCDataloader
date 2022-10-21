@@ -14,7 +14,9 @@
 # The fact that you are presently reading this means that you have had
 # knowledge of the CeCILL-C license and that you accept its terms.
 
+import atexit
 import io
+import os
 import sys
 import select
 import socket
@@ -32,7 +34,7 @@ from tblib import pickling_support
 import torch
 
 # absolute import required for unpickling
-from rpcdataloader.utils import pkl_dispatch_table
+from rpcdataloader.utils import pkl_dispatch_table, WorkerStats
 
 
 pickling_support.install()
@@ -155,43 +157,49 @@ def rpc_async(
     return fut
 
 
-def _handle_client(sock, parallel_sem):
+def _handle_client(sock, parallel_sem, worker_stats: WorkerStats):
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_CORK, 1)
 
-    payload = _sock_read(sock, struct.calcsize("L"))
-    (n,) = struct.unpack("L", payload)
-    payload = _sock_read(sock, n)
-    cmd, args, kwargs = pickle.loads(payload)
+    with worker_stats.track('net'):
+        payload = _sock_read(sock, struct.calcsize("L"))
+        (n,) = struct.unpack("L", payload)
+        payload = _sock_read(sock, n)
 
-    if args is None:
-        args = ()
-    if kwargs is None:
-        kwargs = {}
+    with worker_stats.track('pkl'):
+        cmd, args, kwargs = pickle.loads(payload)
 
-    try:
-        with parallel_sem:
-            out = cmd(*args, **kwargs)
-        err = None
-    except Exception as e:
-        out = None
-        err = e
+    with worker_stats.track('cmd'):
+        if args is None:
+            args = ()
+        if kwargs is None:
+            kwargs = {}
 
-    try:
-        buffers = []
-        payload = _serialize((out, err), buffer_callback=buffers.append)
-    except Exception as e:
-        buffers = []
-        payload = _serialize((None, e))
+        try:
+            with parallel_sem:
+                out = cmd(*args, **kwargs)
+            err = None
+        except Exception as e:
+            out = None
+            err = e
 
-    buffers = [memoryview(b).tobytes() for b in buffers]
+    with worker_stats.track('pkl'):
+        try:
+            buffers = []
+            payload = _serialize((out, err), buffer_callback=buffers.append)
+        except Exception as e:
+            buffers = []
+            payload = _serialize((None, e))
 
-    sock.sendall(struct.pack("L", len(buffers)))
-    for b in buffers:
-        sock.sendall(struct.pack("L", len(b)))
-        sock.sendall(b)
+        buffers = [memoryview(b).tobytes() for b in buffers]
 
-    sock.sendall(struct.pack("L", len(payload)))
-    sock.sendall(payload)
+    with worker_stats.track('net'):
+        sock.sendall(struct.pack("L", len(buffers)))
+        for b in buffers:
+            sock.sendall(struct.pack("L", len(b)))
+            sock.sendall(b)
+
+        sock.sendall(struct.pack("L", len(payload)))
+        sock.sendall(payload)
 
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_CORK, 0)
 
@@ -208,6 +216,13 @@ def _create_server(address, *, family=socket.AF_INET, backlog=None):
     except BaseException as e:
         sock.close()
         raise e from None
+
+
+def _print_stats(stats):
+    if os.environ.get('RPCDATALOADER_DEBUG', '') == "1":
+        print(
+            "worker activity:  "
+            + "  ".join(f"{k}: {v:.0f}s" for k, v in stats.items()))
 
 
 def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1):
@@ -232,11 +247,16 @@ def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1):
     torch.set_num_threads(1)  # prevent thread competition
 
     parallel_sem = threading.Semaphore(parallel)
+    worker_stats = WorkerStats()
+
+    atexit.register(_print_stats, worker_stats.stats)
+
     with _create_server((host, port), family=socket.AF_INET, backlog=2048) as sock:
         while True:
             client_sock, _ = sock.accept()
+
             client_sock.settimeout(timeout)
             t = threading.Thread(
-                target=_handle_client, args=[client_sock, parallel_sem]
+                target=_handle_client, args=[client_sock, parallel_sem, worker_stats]
             )
             t.start()

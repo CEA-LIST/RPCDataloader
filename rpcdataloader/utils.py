@@ -15,6 +15,8 @@
 # knowledge of the CeCILL-C license and that you accept its terms.
 
 import random
+import time
+import threading
 
 import numpy as np
 import torch
@@ -50,3 +52,41 @@ def set_random_seeds(base_seed, worker_id):
     torch.manual_seed(seed)
     np_seed = torch.utils.data._utils.worker._generate_state(base_seed, worker_id)
     np.random.seed(np_seed)
+
+
+class TimeTracker:
+    def __init__(self, ws, cat) -> None:
+        self.start = None
+        self.ws = ws
+        self.cat = cat
+        if cat not in self.ws.stats:
+            self.ws.stats[cat] = 0
+
+    def __enter__(self):
+        with self.ws.lock:
+            if self.ws.num_active == 0:
+                self.ws.stats['idle'] += time.monotonic() - self.ws.start_idle
+
+            self.ws.num_active += 1
+
+        self.start = time.monotonic()
+
+    def __exit__(self, type, value, traceback):
+        with self.ws.lock:
+            self.ws.num_active -= 1
+
+            if self.ws.num_active == 0:
+                self.ws.start_idle = time.monotonic()
+
+        self.ws.stats[self.cat] += time.monotonic() - self.start
+
+
+class WorkerStats:
+    def __init__(self):
+        self.stats = {'idle': 0}
+        self.start_idle = time.monotonic()
+        self.num_active = 0
+        self.lock = threading.Lock()
+
+    def track(self, cat):
+        return TimeTracker(self, cat)
