@@ -1,6 +1,9 @@
 .. image:: https://img.shields.io/badge/doc-latest-brightgreen
    :target: https://cea-list.github.io/RPCDataloader
    :alt: Documentation
+.. image:: https://github.com/CEA-LIST/RPCDataloader/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/CEA-LIST/RPCDataloader/actions/workflows/tests.yml
+   :alt: Continuous tests
 
 ==============
 RPC Dataloader
@@ -20,7 +23,7 @@ Installation
 
 .. code:: shell
 
-    pip install git+https://github.com/CEA-LIST/RPCDataloader.git#egg=rpcdataloader
+    pip install rpcdataloader
 
 
 Usage
@@ -39,7 +42,7 @@ Then instantiate the dataloader:
 .. code:: python
 
     dataloader = rpcdataloader.RPCDataloader(
-        workers=['node01:6543'],
+        workers=['node01:6543', 'node02:6543'],
         dataset=torchvision.datasets.FakeData,
         kwargs={'transform': torchvision.transforms.ToTensor()},
         batch_size=2,

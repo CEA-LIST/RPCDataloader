@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rpcdataloader"
+authors = [{ name = "Nicolas Granger", email = "nicolas.granger@cea.fr" }]
+description = "A Dataloader using rpc-based workers"
+readme = "README.rst"
+license = { text = "CECILL-C" }
+requires-python = ">=3.7"
+classifiers = [
+    "License :: CeCILL-C Free Software License Agreement (CECILL-C)",
+    "Development Status :: 4 - Beta",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "tblib",
+    "typing;python_version<'3.9'",
+    "pickle5;python_version<'3.8'",
+    "torch",
+    "numpy",
+]
+dynamic = ["version"]
+
+[project.urls]
+repository = "https://github.com/CEA-LIST/RPCDataloader"
+documentation = "https://cea-list.github.io/RPCDataloader"
+
+[project.optional-dependencies]
+test = ["pytest"]
+doc = ["sphinx", "sphinx-rtd-theme"]
+
+[tool.setuptools_scm]

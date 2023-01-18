@@ -6,7 +6,7 @@ RPCDataloader documentation
    :caption: Contents:
 
 .. include:: ../README.rst
-   :start-line: 8
+   :start-line: 12
 
 API
 ===

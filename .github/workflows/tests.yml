@@ -1,4 +1,4 @@
-name: Python package
+name: Continuous tests
 
 on: [push]
 
