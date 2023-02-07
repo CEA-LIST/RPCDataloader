@@ -1,4 +1,4 @@
-# (C) Copyright 2022 CEA LIST. All Rights Reserved.
+# (C) Copyright 2022-2023 CEA LIST. All Rights Reserved.
 # Contributor(s): Nicolas Granger <nicolas.granger@cea.fr>
 #
 # This software is governed by the CeCILL-C license under French law and

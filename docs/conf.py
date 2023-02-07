@@ -4,6 +4,13 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import inspect
+import os
+from importlib.metadata import version
+import importlib
+import importlib.util
+import sys
+
 # -- Path setup --------------------------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -17,12 +24,21 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'rpcdataloader'
+project = 'RPCDdataloader'
 copyright = '2022, CEA LIST'
 author = 'Nicolas Granger'
 
-# The full version, including alpha/beta/rc tags
-release = '0.0.1'
+# The full version, including alpha/beta/rc tags.
+pkg_version = version("rpcdataloader")
+
+if len(pkg_version.split("+")) > 1:
+    release = pkg_version.split("+")[0]
+    commit = pkg_version.split("+")[1].split('.')[0][1:]
+    version = f"latest ({release})"
+else:
+    release = pkg_version.split("+")[0]
+    commit = f"v{release}"
+    version = f"stable ({release})"
 
 
 # -- General configuration ---------------------------------------------------
@@ -32,8 +48,10 @@ release = '0.0.1'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.githubpages',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.linkcode',
+    'sphinxext.opengraph',
+    'sphinx_copybutton'
 ]
 
 typehints_defaults = 'braces-after'
@@ -41,6 +59,7 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'torch': ('https://pytorch.org/docs/stable', None)
 }
+ogp_site_url = "https://cea-list.github.io/RPCDataloader/"
 
 
 # List of patterns, relative to source directory, that match files and
@@ -54,3 +73,46 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
+
+
+# -- Options for Linkcode extension -------------------------------------------
+
+linkcode_url = "https://github.com/CEA-LIST/RPCDataloader/blob/" \
+               + commit + "/{filepath}#L{linestart}-L{linestop}"
+
+
+def linkcode_resolve(domain, info):
+    if domain != 'py' or not info['module']:
+        return None
+
+    spec = importlib.util.find_spec(info['module'])
+    if spec is None or not spec.has_location:
+        return None
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    obj = module
+    for part in info['fullname'].split('.'):
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            return None
+
+    filepath = inspect.getfile(obj)
+    for p in sys.path:
+        if filepath.startswith(os.path.abspath(p)):
+            filepath = os.path.relpath(filepath, os.path.abspath(p))
+            break
+
+    try:
+        source, lineno = inspect.getsourcelines(obj)
+    except OSError:
+        return None
+    else:
+        linestart, linestop = lineno, lineno + len(source) - 1
+
+    return linkcode_url.format(
+        filepath=filepath, 
+        linestart=linestart, 
+        linestop=linestop)

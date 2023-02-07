@@ -30,6 +30,6 @@ documentation = "https://cea-list.github.io/RPCDataloader"
 
 [project.optional-dependencies]
 test = ["pytest"]
-doc = ["sphinx", "sphinx-rtd-theme"]
+doc = ["sphinx", "docutils>=0.17", "sphinx-rtd-theme>=1.0", "sphinxext-opengraph", "sphinx-copybutton"]
 
 [tool.setuptools_scm]

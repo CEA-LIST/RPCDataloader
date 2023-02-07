@@ -1,3 +1,5 @@
+:og:description: A variant of the PyTorch Dataloader using remote workers.
+
 RPCDataloader documentation
 ===========================
 

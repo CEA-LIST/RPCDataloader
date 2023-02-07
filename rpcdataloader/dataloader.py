@@ -1,4 +1,4 @@
-# (C) Copyright 2022 CEA LIST. All Rights Reserved.
+# (C) Copyright 2022-2023 CEA LIST. All Rights Reserved.
 # Contributor(s): Nicolas Granger <nicolas.granger@cea.fr>
 #
 # This software is governed by the CeCILL-C license under French law and
@@ -103,18 +103,18 @@ class RPCDataloader:
         and the size of dataset is not divisible by the batch size, then the
         last batch will be smaller.
 
-    Differences with pytorch dataloader:
+    Notable differences with pytorch dataloader:
 
-    - Only mappable dataset are supported (Dataset, not IterableDataset)
-    - If distributed mode is initialized, and :attr:`sampler` is not specified,
-      it defaults to :class:`torch.utils.data.distributed.DistributedSampler`.
+    - Only mappable dataset are supported (`Dataset`, not `IterableDataset`)
+    - If distributed mode is initialized and :attr:`sampler` is not specified,
+      :class:`torch.utils.data.distributed.DistributedSampler` is automatically
+      used as the sampler.
       Don't forget to call :code:`set_epoch` on :attr:`RPCDataloader.sampler`
       at every epoch.
     - :attr:`timeout` is the timeout on individual network operations
     - :attr:`worker_init_fn` and :attr:`generator` are not supported.
-    - Random seeds are not set automatically because workers are persistent
-      and not tied to a specific dataloader. See :func:`set_random_seeds` for
-      a way to set the seeds.
+    - Random seeds are not supported because workers may execute requests
+      out of order anyway, thus breaking reproducibility.
 
     .. note::
         In a distributed setup, you should probably split the workers between
