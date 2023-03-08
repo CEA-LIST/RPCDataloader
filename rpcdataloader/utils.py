@@ -21,18 +21,18 @@ import torch
 
 
 def unpickle_tensor(buffer, dtype, shape):
-    return torch.frombuffer(buffer, dtype=dtype).view(*shape)
+    return torch.frombuffer(buffer, dtype=dtype).view(shape)
 
 
 def pickle_tensor(t):
-    return unpickle_tensor, (t.contiguous().numpy().view("b"), t.dtype, t.shape)
+    return unpickle_tensor, (t.ravel().numpy().view("b"), t.dtype, t.shape)
 
 
 pkl_dispatch_table = {torch.Tensor: pickle_tensor}
 
 
 def set_random_seeds(base_seed, worker_id):
-    """Set the seed of default random generator from python, torch and numpy.
+    """Set the seed of default random generators from python, torch and numpy.
 
     This should be called once on each worker.
     Note that workers may run tasks out of order, so this does not ensure

@@ -113,6 +113,6 @@ def linkcode_resolve(domain, info):
         linestart, linestop = lineno, lineno + len(source) - 1
 
     return linkcode_url.format(
-        filepath=filepath, 
-        linestart=linestart, 
+        filepath=filepath,
+        linestart=linestart,
         linestop=linestop)

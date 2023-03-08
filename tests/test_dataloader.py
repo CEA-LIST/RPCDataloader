@@ -3,7 +3,7 @@ import multiprocessing
 import pytest
 import torch
 
-from rpcdataloader import run_worker, RPCDataloader
+from rpcdataloader import run_worker, RPCDataloader, RPCDataset
 
 
 @pytest.fixture(scope="function")
@@ -17,17 +17,20 @@ def workers():
     for p in procs:
         p.start()
 
-    yield workers
+    yield [f"{h}:{p}" for h, p in workers]
 
     for p in procs:
         p.terminate()
 
 
 def test_rpcdataloader(workers):
-    dataloader = RPCDataloader(
-        workers=[f"{host}:{port}" for host, port in workers],
+    dataset = RPCDataset(
+        workers=workers,
         dataset=torch.rand,
-        args=[(1000, 128)],
+        size=(1000, 128))
+
+    dataloader = RPCDataloader(
+        dataset,
         batch_size=5,
     )
 

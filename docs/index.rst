@@ -1,25 +1,20 @@
 :og:description: A variant of the PyTorch Dataloader using remote workers.
 
-RPCDataloader documentation
-===========================
-
 .. toctree::
+   :hidden:
    :maxdepth: 2
-   :caption: Contents:
+
+   self
+   api
+   examples
 
 .. include:: ../README.rst
-   :start-line: 12
+   :start-line: 7
+   :end-line: 60
 
-API
-===
+Further reading
+===============
 
-.. automodule:: rpcdataloader
-   :members:
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+- :doc:`api`
+- :ref:`ImageNet training example`
+- :ref:`Slurm integration example`

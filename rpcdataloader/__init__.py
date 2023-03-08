@@ -14,8 +14,8 @@
 # The fact that you are presently reading this means that you have had
 # knowledge of the CeCILL-C license and that you accept its terms.
 
-from .dataloader import RPCDataloader as RPCDataloader
+from .dataloader import RPCDataloader as RPCDataloader, RPCDataset as RPCDataset
 from .rpc import rpc_async as rpc_async, run_worker as run_worker
 from .utils import set_random_seeds as set_random_seeds
 
-__all__ = ["rpc_async", "run_worker", "RPCDataloader", "set_random_seeds"]
+__all__ = ["rpc_async", "run_worker", "RPCDataloader", "RPCDataset", "set_random_seeds"]

@@ -15,25 +15,25 @@
 # knowledge of the CeCILL-C license and that you accept its terms.
 
 import io
-import sys
 import select
 import socket
 import struct
+import sys
 import threading
 import time
-from typing import Callable, TypeVar
+import weakref
+from typing import Any, Callable, Dict, TypeVar
 
 if sys.version_info < (3, 8):
     import pickle5 as pickle
 else:
     import pickle
 
-from tblib import pickling_support
 import torch
+from tblib import pickling_support
 
 # absolute import required for unpickling
 from rpcdataloader.utils import pkl_dispatch_table
-
 
 pickling_support.install()
 
@@ -41,10 +41,10 @@ pickling_support.install()
 _T = TypeVar("_T")
 
 
-def _serialize(obj, buffer_callback=None):
+def _serialize(obj, buffer_cb=None):
     buffer = io.BytesIO()
     pickler = pickle.Pickler(
-        buffer, protocol=pickle.HIGHEST_PROTOCOL, buffer_callback=buffer_callback
+        buffer, protocol=pickle.HIGHEST_PROTOCOL, buffer_callback=buffer_cb
     )
     pickler.dispatch_table = pkl_dispatch_table
     pickler.dump(obj)
@@ -64,23 +64,32 @@ def _sock_read(sock, size, buffer=None):
     return buffer
 
 
-def _create_connection(*kargs, **kwargs):
-    for i in range(5):
+def _create_connection(host, timeout, *kargs, **kwargs):
+    host, port = host.split(":")
+    port = int(port)
+
+    for i in range(int(timeout)):
         try:
-            return socket.create_connection(*kargs, **kwargs)
+            return socket.create_connection(
+                (host, port), *kargs, timeout=timeout, **kwargs)
         except OSError as e:
-            if i == 4:
+            if i + 1 == timeout:
                 raise e from None
             else:
                 time.sleep(1)
 
 
-def _rpc_send_command(host, port, fut, func, args, kwargs, pin_memory, timeout):
+tls = threading.local()
+
+
+def _rpc_send_command(host, fut, func, args, kwargs, pin_memory, rref, timeout):
+    tls.host = host
+
     try:
-        payload = _serialize((func, args, kwargs))
+        payload = _serialize((func, args, kwargs, rref))
 
         # connect to server
-        with _create_connection((host, port), timeout=timeout) as s:
+        with _create_connection(host, timeout=timeout) as s:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
             # send command
@@ -98,7 +107,9 @@ def _rpc_send_command(host, port, fut, func, args, kwargs, pin_memory, timeout):
                 (n,) = struct.unpack("L", payload)
 
                 if pin_memory:
-                    b = torch.empty(n, dtype=torch.uint8, pin_memory=pin_memory).numpy()
+                    b = torch.empty(
+                        n, dtype=torch.uint8, pin_memory=pin_memory
+                    ).numpy()
                 else:
                     b = bytearray(n)
 
@@ -124,31 +135,41 @@ def _rpc_send_command(host, port, fut, func, args, kwargs, pin_memory, timeout):
 
 def rpc_async(
     host: str,
-    port: int,
     func: Callable[..., _T],
     args=None,
     kwargs=None,
     pin_memory=False,
+    rref: bool = False,
     timeout=120.0,
 ) -> torch.futures.Future[_T]:
     """Execute function on remote worker and return the result as a future.
 
-    :param host: rpc worker host
-    :param port: rpc worker port
-    :param func: function to execute, must be picklable as well as its output
-    :param args: positional arguments, must be picklable
-    :param kwargs: keword arguments, must be picklable
+    :param host:
+        rpc worker host
+    :param func:
+        function to execute
+    :param args:
+        positional arguments
+    :param kwargs:
+        keword arguments
     :param pin_memory:
-        wether buffers of the return value should be allocated in pinned memory.
-    :param timeout: timeout in seconds on network operations
+        wether buffers (ie: tensors) should be allocated in pinned memory.
+    :param rref:
+        whether to return the output as a remote reference.
+    :param timeout:
+        timeout in seconds on network operations
 
-    :return: A future that will contain the function return value.
-    :rtype: :class:`torch.futures.Future`
+    :return:
+        A future that will contain the function return value.
+
+    .. note::
+        :attr:`func` and its arguments must be serializable, which exludes
+        the usage of lambdas or locally defined functions.
     """
     fut = torch.futures.Future()
     t = threading.Thread(
         target=_rpc_send_command,
-        args=(host, port, fut, func, args, kwargs, pin_memory, timeout),
+        args=(host, fut, func, args, kwargs, pin_memory, rref, timeout),
     )
     t.start()
 
@@ -161,7 +182,7 @@ def _handle_client(sock, parallel_sem):
     payload = _sock_read(sock, struct.calcsize("L"))
     (n,) = struct.unpack("L", payload)
     payload = _sock_read(sock, n)
-    cmd, args, kwargs = pickle.loads(payload)
+    cmd, args, kwargs, rref = pickle.loads(payload)
 
     if args is None:
         args = ()
@@ -171,6 +192,8 @@ def _handle_client(sock, parallel_sem):
     try:
         with parallel_sem:
             out = cmd(*args, **kwargs)
+            if rref:
+                out = RRef(obj=out)
         err = None
     except Exception as e:
         out = None
@@ -178,7 +201,7 @@ def _handle_client(sock, parallel_sem):
 
     try:
         buffers = []
-        payload = _serialize((out, err), buffer_callback=buffers.append)
+        payload = _serialize((out, err), buffer_cb=buffers.append)
     except Exception as e:
         buffers = []
         payload = _serialize((None, e))
@@ -196,14 +219,11 @@ def _handle_client(sock, parallel_sem):
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_CORK, 0)
 
 
-def _create_server(address, *, family=socket.AF_INET, backlog=None):
+def _create_server(address, *, family=socket.AF_INET):
     sock = socket.socket(family, socket.SOCK_STREAM)
     try:
         sock.bind(address)
-        if backlog is None:
-            sock.listen()
-        else:
-            sock.listen(backlog)
+        sock.listen()
         return sock
     except BaseException as e:
         sock.close()
@@ -226,13 +246,11 @@ def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1):
     .. note::
       - each request is processed in a separate thread
       - network transfers may overlap regardless of :attr:`parallel` argument.
-      - if a worker has multiple network interfaces and IPs, make sure to choose
-        the fastest one (eg: infiniband vs gigabit ethernet).
     """
     torch.set_num_threads(1)  # prevent thread competition
 
     parallel_sem = threading.Semaphore(parallel)
-    with _create_server((host, port), family=socket.AF_INET, backlog=2048) as sock:
+    with _create_server((host, port), family=socket.AF_INET) as sock:
         while True:
             client_sock, _ = sock.accept()
             client_sock.settimeout(timeout)
@@ -240,3 +258,44 @@ def run_worker(host: str, port: int, timeout: float = 120, parallel: int = 1):
                 target=_handle_client, args=[client_sock, parallel_sem]
             )
             t.start()
+
+
+_handles: Dict[int, Any] = {}
+
+
+class RRef:
+    def __init__(self, obj=None, uid=None):
+        if uid is None:
+            self.obj = obj
+            self.uid = None
+
+        else:
+            self.uid = uid
+            self.host = tls.host
+
+            weakref.finalize(self, rpc_async, self.host, _handles.pop, [uid])
+
+    @staticmethod
+    def wrap(func, args, kwargs):
+        return RRef(obj=func(*args, **kwargs))
+
+    @staticmethod
+    def _rebuild_remote(uid):
+        return RRef(uid=uid)
+
+    @staticmethod
+    def _rebuild_local(uid):
+        return _handles[uid]
+
+    def __reduce__(self):
+        if self.uid is not None:
+            return RRef._rebuild_local, (self.uid,)
+
+        else:
+            uid = id(self.obj)
+            if uid in _handles:
+                raise RuntimeError("Only one rref can exist for a given object")
+
+            _handles[uid] = self.obj
+
+            return RRef._rebuild_remote, (uid,)

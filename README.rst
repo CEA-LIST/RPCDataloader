@@ -10,10 +10,10 @@ RPC Dataloader
 ==============
 
 This library implements a variant of the PyTorch Dataloader using remote workers.
-This allows to distribute workers over remote servers rather than the one running the main script.
+It allows to distribute workers over remote servers rather than the one running the main script.
 
 To use it, start one or several worker daemons on remote computers.
-The RPCDataloader on the main computer will dispatch requests for items to the workers and await the returned value.
+The machines running the data loaders will dispatch requests for items to the workers and await the returned values.
 
 Though similar to `torch.rpc <https://pytorch.org/docs/stable/rpc.html>`_, this library uses its own implementation of RPC (Remote Procedure Call) which is simpler (no initialization) and does not conflict with the one from pytorch.
 
@@ -26,6 +26,8 @@ Installation
     pip install rpcdataloader
 
 
+.. _Usage:
+
 Usage
 =====
 
@@ -37,14 +39,19 @@ To use the RPC dataloader, start a few workers either from the command line:
 
 or by calling :code:`rpcdataloader.run_worker` directly from a python script.
 
-Then instantiate the dataloader:
+Then instantiate a remote dataset and dataloader:
 
 .. code:: python
 
+    dataset = rpcdataloader.RPCDataset(
+        workers=['node01:6543', 'node02:5432'],
+        dataset=torchvision.datasets.ImageFolder,
+        root=args.data_path + "/train",
+        transform=train_transform,
+    )
+
     dataloader = rpcdataloader.RPCDataloader(
-        workers=['node01:6543', 'node02:6543'],
-        dataset=torchvision.datasets.FakeData,
-        kwargs={'transform': torchvision.transforms.ToTensor()},
+        dataset
         batch_size=2,
         shuffle=True,
         pin_memory=True)
@@ -53,60 +60,9 @@ Then instantiate the dataloader:
         ...
 
 
-Slurm integration
-=================
+Further reading
+===============
 
-Slurm integration is a little tricky as it relies on a rather exotic functionality: `heterogeneous jobs <https://slurm.schedmd.com/heterogeneous_jobs.html>`_.
-To distribute your workers on cpu nodes and your trainers on GPU nodes, use the following slurm script template:
-
-.. code:: shell
-
-    #!/usr/bin/env sh
-    #SBATCH --time=3-00:00:00
-
-    #SBATCH --partition=gpu
-    #SBATCH --nodes=1
-    #SBATCH --ntasks-per-node=2
-    #SBATCH --cpus-per-task=2
-    #SBATCH --mem=64G
-    #SBATCH --gres=gpu:2
-
-    #SBATCH hetjob
-
-    #SBATCH --partition=cpu
-    #SBATCH --nodes=1
-    #SBATCH --ntasks-per-node=16
-    #SBATCH --cpus-per-task=2
-    #SBATCH --mem=72G
-
-    # create an output dir
-    export OUT_DIR="./outputs/${SLURM_JOB_NAME}.${SLURM_JOB_ID}"
-    mkdir -p $OUT_DIR
-
-    # start workers and collect host and port list
-    rm -f ${OUT_DIR}/workers && touch ${OUT_DIR}/workers
-    srun --het-group=1 -I --exclusive --kill-on-bad-exit=1 \
-        sh -c '
-            export port=$(( 16384 + $RANDOM % 49182 ))
-            echo $(hostname):$port \
-                | flock ${OUT_DIR}/workers tee -a ${OUT_DIR}/workers \
-                &> /dev/null
-            python -u -m rpcdataloader.launch --host=0.0.0.0 --port=$port
-            ' &
-    worker_task_pid=$!
-
-    # block until all workers have written their address and port
-    tail -f ${OUT_DIR}/workers | head -n $SLURM_NTASKS_PER_NODE_HET_GROUP_1
-
-    # parse worker list
-    export workers=$(tr '\n' ' ' < ${OUT_DIR}/workers)
-
-    # run training script
-    export MASTER_ADDR="$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n1)"
-    export MASTER_PORT=$(( 16384 + $RANDOM % 49182 ))
-    srun --het-group=0 -I --exclusive --kill-on-bad-exit=1 \
-        python -u example.py \
-            --workers $workers
-
-    # stop workers
-    kill $worker_task_pid
+- `API documentation <https://cea-list.github.io/RPCDataloader>`_
+- `ResNet50 training on ImageNet dataset <docs/example_rpc.py>`_
+- `Slurm integration using heterogeneous jobs <docs/example_rpc.slurm>`_
