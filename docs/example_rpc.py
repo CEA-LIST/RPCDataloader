@@ -1,15 +1,16 @@
 import argparse
 import os
+import time
 
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import StepLR
-from torchvision.models import get_model
-from torchvision.datasets import ImageFolder
-from torchvision import transforms
-
 from torch.utils.data import DistributedSampler, RandomSampler
-from rpcdataloader import RPCDataset, RPCDataloader
+from torchvision import transforms
+from torchvision.datasets import ImageFolder
+from torchvision.models import get_model
+
+from rpcdataloader import RPCDataloader, RPCDataset
 
 
 def main():
@@ -113,6 +114,8 @@ def main():
             train_sampler.set_epoch(epoch)
 
         for it, (images, targets) in enumerate(train_loader):
+            t0 = time.monotonic()
+
             optimizer.zero_grad(set_to_none=True)
 
             images = images.to(device, non_blocking=True)
@@ -127,10 +130,12 @@ def main():
             scaler.update()
 
             if (it + 1) % 20 == 0 and rank == 0:
+                t1 = time.monotonic()
                 print(
                     f"[epoch {epoch:<3d}"
                     f"  it {it:-5d}/{len(train_loader)}]"
                     f"  loss: {loss.item():2.3f}"
+                    f"  time: {t1 - t0:.1f}"
                 )
 
         scheduler.step()

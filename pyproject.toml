@@ -20,7 +20,7 @@ dependencies = [
     "typing;python_version<'3.9'",
     "pickle5;python_version<'3.8'",
     "torch",
-    "numpy",
+    "numpy"
 ]
 dynamic = ["version"]
 
@@ -30,6 +30,13 @@ documentation = "https://cea-list.github.io/RPCDataloader"
 
 [project.optional-dependencies]
 test = ["pytest"]
-doc = ["sphinx", "docutils>=0.17", "sphinx-rtd-theme>=1.0", "sphinxext-opengraph", "sphinx-copybutton"]
+doc = [
+    "sphinx",
+    "docutils>=0.17",
+    "sphinx-rtd-theme>=1.0",
+    "sphinxext-opengraph",
+    "sphinx-copybutton",
+    "sphinx-sitemap"
+]
 
 [tool.setuptools_scm]

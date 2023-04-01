@@ -43,7 +43,7 @@ worker_task_pid=$!
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST_HET_GROUP_0 | head -n 1)
 export MASTER_PORT=16000
 srun --het-group=0 -I --exclusive --kill-on-bad-exit=1 \
-    python -u example.py \
+    python -u example_rpc.py \
         --workers ${workers[@]} \
         --data-path=/media/ILSVRC \
         --batch-size=128

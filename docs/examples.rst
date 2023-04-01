@@ -14,7 +14,7 @@ Prior to running this script, you should :ref:`spawn workers <Usage>`.
 
 .. literalinclude:: example_rpc.py
     :linenos:
-    :emphasize-lines: 12,19,47-50,70-72,83
+    :emphasize-lines: 13,20,48-50,71-73,84
 
 
 .. _Slurm integration example:

@@ -51,7 +51,8 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.linkcode',
     'sphinxext.opengraph',
-    'sphinx_copybutton'
+    'sphinx_copybutton',
+    'sphinx_sitemap'
 ]
 
 typehints_defaults = 'braces-after'
@@ -60,7 +61,7 @@ intersphinx_mapping = {
     'torch': ('https://pytorch.org/docs/stable', None)
 }
 ogp_site_url = "https://cea-list.github.io/RPCDataloader/"
-
+sitemap_url_scheme = "{link}"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -73,6 +74,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
+
+html_baseurl = 'https://cea-list.github.io/RPCDataloader/'
 
 
 # -- Options for Linkcode extension -------------------------------------------
